@@ -11,7 +11,7 @@ export default function BackToTop() {
 
   return (
     <a
-      href="#home"
+      href="#main"
       aria-label="Back to top"
       tabIndex={show ? 0 : -1}
       aria-hidden={!show}

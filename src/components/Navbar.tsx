@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarCheck, Menu, X } from 'lucide-react';
 import Logo from './Logo';
 import { navLinks } from '../data/site';
+import { currentPage, toPage, toSection } from '../route';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [active, setActive] = useState<string>('home');
+  const [active, setActive] = useState<string>(currentPage === 'gallery' ? 'gallery' : 'home');
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -57,7 +58,7 @@ export default function Navbar() {
   }, [open]);
 
   const linkClass = (id: string) =>
-    `relative rounded-md px-3 py-2 text-[0.94rem] font-medium transition-colors hover:text-brand-green ${
+    `relative whitespace-nowrap rounded-md px-2.5 py-2 text-[0.94rem] font-medium transition-colors hover:text-brand-green ${
       active === id ? 'text-brand-green' : 'text-brand-ink/75'
     }`;
 
@@ -67,19 +68,19 @@ export default function Navbar() {
         scrolled ? 'border-brand-green/10 bg-white shadow-soft' : 'border-transparent bg-white'
       }`}
     >
-      <nav className="container-site flex h-[4.75rem] items-center justify-between gap-6" aria-label="Main">
-        <a href="#home" aria-label="NeuHope Physiotherapy 曦望物理治疗 — back to top" onClick={() => setOpen(false)}>
+      <nav className="container-site flex h-[4.75rem] items-center justify-between gap-4" aria-label="Main">
+        <a href={toPage('home', 'home')} aria-label="NeuHope Physiotherapy 曦望物理治疗 — back to top" onClick={() => setOpen(false)}>
           <Logo />
         </a>
 
-        <ul className="hidden items-center gap-1 xl:flex">
+        <ul className="hidden items-center gap-0.5 xl:flex">
           {navLinks.map((l) => (
             <li key={l.id}>
-              <a href={`#${l.id}`} className={linkClass(l.id)} aria-current={active === l.id ? 'location' : undefined}>
+              <a href={l.page ? toPage(l.page, l.id) : toSection(l.id)} className={linkClass(l.id)} aria-current={active === l.id ? 'location' : undefined}>
                 {l.label}
                 <span
                   aria-hidden="true"
-                  className={`absolute inset-x-3 -bottom-0.5 h-[3px] rounded-full bg-brand-yellow transition-transform duration-200 ${
+                  className={`absolute inset-x-2.5 -bottom-0.5 h-[3px] rounded-full bg-brand-yellow transition-transform duration-200 ${
                     active === l.id ? 'scale-x-100' : 'scale-x-0'
                   }`}
                 />
@@ -89,7 +90,7 @@ export default function Navbar() {
         </ul>
 
         <div className="flex items-center gap-3">
-          <a href="#contact" className="btn-primary hidden whitespace-nowrap !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
+          <a href={toSection('contact')} className="btn-primary hidden whitespace-nowrap !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
             <CalendarCheck className="h-4 w-4" aria-hidden="true" />
             Book an Appointment
           </a>
@@ -118,7 +119,7 @@ export default function Navbar() {
           {navLinks.map((l) => (
             <li key={l.id}>
               <a
-                href={`#${l.id}`}
+                href={l.page ? toPage(l.page, l.id) : toSection(l.id)}
                 onClick={() => setOpen(false)}
                 aria-current={active === l.id ? 'location' : undefined}
                 className={`flex items-center justify-between border-b border-brand-green/10 py-4 font-heading text-xl font-bold ${
@@ -132,7 +133,7 @@ export default function Navbar() {
           ))}
         </ul>
         <div className="container-site pb-10">
-          <a href="#contact" onClick={() => setOpen(false)} className="btn-primary w-full">
+          <a href={toSection('contact')} onClick={() => setOpen(false)} className="btn-primary w-full">
             <CalendarCheck className="h-4 w-4" aria-hidden="true" />
             Book an Appointment
           </a>

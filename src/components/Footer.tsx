@@ -1,6 +1,7 @@
 import { Mail, MapPin, Phone } from 'lucide-react';
 import Logo from './Logo';
 import SocialIcon from './SocialIcon';
+import { toPage, toSection } from '../route';
 import ClinicValue from './ClinicValue';
 import { clinic, navLinks, services, telHref } from '../data/site';
 
@@ -13,7 +14,7 @@ export default function Footer() {
       </h2>
       <div className="container-site grid gap-12 py-16 md:grid-cols-2 lg:grid-cols-[1.3fr_0.8fr_1.1fr_1.1fr]">
         <div>
-          <a href="#home" aria-label="NeuHope Physiotherapy 曦望物理治疗 — back to top">
+          <a href={toPage('home', 'home')} aria-label="NeuHope Physiotherapy 曦望物理治疗 — back to top">
             <Logo tone="dark" />
           </a>
           <p className="mt-5 max-w-xs leading-relaxed">
@@ -50,7 +51,7 @@ export default function Footer() {
           <ul className="mt-5 space-y-2.5">
             {navLinks.map((l) => (
               <li key={l.id}>
-                <a href={`#${l.id}`} className="transition-colors hover:text-white">
+                <a href={l.page ? toPage(l.page, l.id) : toSection(l.id)} className="transition-colors hover:text-white">
                   {l.label}
                 </a>
               </li>
@@ -63,7 +64,7 @@ export default function Footer() {
           <ul className="mt-5 space-y-2.5">
             {services.map((s) => (
               <li key={s.id}>
-                <a href="#services" className="transition-colors hover:text-white">
+                <a href={toSection('services')} className="transition-colors hover:text-white">
                   {s.title}
                 </a>
               </li>
@@ -91,7 +92,7 @@ export default function Footer() {
               </ClinicValue>
             </li>
           </ul>
-          <a href="#contact" className="btn-accent mt-7 !min-h-[44px] !px-5 !py-2.5 text-sm">
+          <a href={toSection('contact')} className="btn-accent mt-7 !min-h-[44px] !px-5 !py-2.5 text-sm">
             Book an Appointment
           </a>
         </div>

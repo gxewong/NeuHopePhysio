@@ -196,6 +196,8 @@ When you're done, save with **Cmd + S** (Mac) or **Ctrl + S** (Windows).
 | Facebook and Instagram links | `social` |
 | The six services and their descriptions | `services` |
 | Frequently asked questions | `faqs` |
+| Staff profiles in "Our Team" (photos go in `public/team`) | `team` |
+| Photos on the Gallery page (photos go in `public/gallery`) | `gallery` |
 | Patient testimonials (only real ones, with the patient's permission) | `testimonials` |
 | Show or hide the testimonials section | `SHOW_TESTIMONIALS` (`true` = show, `false` = hide) |
 | Connect the enquiry form to an email service | `ENQUIRY_ENDPOINT` (see below) |

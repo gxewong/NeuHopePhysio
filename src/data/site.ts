@@ -77,16 +77,60 @@ export const mapHref = (c: ClinicDetails) =>
     ? `https://maps.app.goo.gl/25qPr6QjWJULU3AAA`
     : null);
 
+/* ── Our Team ─────────────────────────────────────────────── */
+/*  Add one entry per staff member. Only use real details the
+    staff member has approved.
+    Photos: put the picture in the  public/team  folder and write
+    its name as  photo: "/team/file-name.jpg". Square photos look
+    best. Leave photo as null to show the person's initials.
+    The "Our Team" section and menu link appear automatically
+    once at least one person is added.                         */
+
+/*  null = not filled in yet (shows an [Insert …] placeholder).
+    Delete a line completely to hide that detail for that person. */
+export interface TeamMember {
+  name: string;
+  role: string | null;
+  /** e.g. "BSc (Hons) Physiotherapy" */
+  qualifications?: string | null;
+  /** One or two short sentences */
+  bio?: string | null;
+  /** e.g. ["English", "Bahasa Melayu", "中文"] */
+  languages?: string[] | null;
+  photo: string | null;
+}
+
+export const team: TeamMember[] = [
+  {
+    name: "Edwin Tay",
+    role: null, // [Insert role, e.g. "Physiotherapist"]
+    qualifications: null, // [Insert qualifications]
+    bio: null, // [Insert a short bio]
+    languages: null, // [Insert languages, e.g. ["English", "中文"]]
+    photo: null, // [Insert photo, e.g. "/team/edwin-tay.jpg"]
+  },
+  {
+    name: "Maslyn Poh",
+    role: null, // [Insert role, e.g. "Physiotherapist"]
+    qualifications: null, // [Insert qualifications]
+    bio: null, // [Insert a short bio]
+    languages: null, // [Insert languages, e.g. ["English", "中文"]]
+    photo: null, // [Insert photo, e.g. "/team/maslyn-poh.jpg"]
+  },
+];
+
 /* ── Navigation ───────────────────────────────────────────── */
 
-export const navLinks = [
+export const navLinks: { id: string; label: string; page?: 'gallery' }[] = [
   { id: 'home', label: 'Home' },
   { id: 'about', label: 'About Us' },
+  ...(team.length > 0 ? [{ id: 'team', label: 'Our Team' }] : []),
   { id: 'services', label: 'Services' },
   { id: 'approach', label: 'Our Approach' },
+  { id: 'gallery', label: 'Gallery', page: 'gallery' },
   { id: 'faqs', label: 'FAQs' },
   { id: 'contact', label: 'Contact' },
-] as const;
+];
 
 /* ── Services ─────────────────────────────────────────────── */
 /*  Sample service categories — verify against the clinic's
@@ -181,3 +225,21 @@ export const faqs = [
 
 export const SHOW_TESTIMONIALS = true;
 export const testimonials: { quote: string; attribution: string }[] = [];
+
+/* ── Gallery page (/gallery) ──────────────────────────────── */
+/*  Photos of the clinic. Put each photo in the  public/gallery
+    folder, then add a line below, for example:
+      { src: "/gallery/reception.jpg", alt: "Reception area", caption: "Our reception" },
+    "alt" describes the photo for people using screen readers.
+    "caption" is optional and appears under the photo.
+    While this list is empty, the page shows placeholder tiles.
+    Only use photos of the real clinic, with permission from
+    anyone who can be recognised.                               */
+
+export interface GalleryImage {
+  src: string;
+  alt: string;
+  caption?: string;
+}
+
+export const gallery: GalleryImage[] = [];
