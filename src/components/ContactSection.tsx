@@ -12,7 +12,7 @@ import {
   Send,
   ShieldCheck,
 } from 'lucide-react';
-import { clinic, ENQUIRY_ENDPOINT, mapHref, services, telHref, whatsappHref } from '../data/site';
+import { booking, clinic, ENQUIRY_ENDPOINT, mapHref, services, telHref, whatsappHref } from '../data/site';
 import ClinicValue from './ClinicValue';
 
 /* ── Form model ─────────────────────────────────────────── */
@@ -22,10 +22,14 @@ interface FormValues {
   phone: string;
   email: string;
   contactMethod: string;
+  appointmentType: string;
   service: string;
   date: string;
+  time: string;
   message: string;
   consent: boolean;
+  /** Hidden spam trap — real visitors never fill this in */
+  website: string;
 }
 type Errors = Partial<Record<keyof FormValues, string>>;
 type Status = 'idle' | 'submitting' | 'success' | 'error' | 'not-connected';
@@ -35,10 +39,13 @@ const initial: FormValues = {
   phone: '',
   email: '',
   contactMethod: '',
+  appointmentType: '',
   service: '',
   date: '',
+  time: '',
   message: '',
   consent: false,
+  website: '',
 };
 
 const MESSAGE_MAX = 500;
@@ -54,16 +61,61 @@ function validate(v: FormValues): Errors {
   else if (!PHONE_CHARS_RE.test(v.phone.trim()) || digits.length < 8 || digits.length > 15)
     e.phone = 'Please enter a valid phone number, e.g. +60 12-345 6789.';
 
-  if (v.email.trim() && !EMAIL_RE.test(v.email.trim())) e.email = 'Please enter a valid email address, e.g. name@example.com.';
+  if (!v.email.trim()) e.email = 'Please enter your email address so we can confirm your appointment.';
+  else if (!EMAIL_RE.test(v.email.trim())) e.email = 'Please enter a valid email address, e.g. name@example.com.';
   if (!v.contactMethod) e.contactMethod = 'Please choose how you would like us to contact you.';
-  else if (v.contactMethod === 'Email' && !v.email.trim()) e.email = 'Please add your email address, or choose another contact method.';
 
+  if (!v.appointmentType) e.appointmentType = 'Please choose the type of appointment.';
   if (!v.service) e.service = 'Please choose a service, or select "Not sure — I would like advice".';
-  if (v.date && v.date < todayISO()) e.date = 'Please choose today or a future date.';
+
+  if (!v.date) e.date = 'Please choose a preferred date.';
+  else if (v.date < todayISO()) e.date = 'Please choose today or a future date.';
+  else if (!booking.hours[weekday(v.date)]) e.date = 'The clinic is closed on this day. Please choose another date.';
+
+  if (!v.time) e.time = v.date ? 'Please choose a preferred start time.' : 'Please choose a date first, then a start time.';
+  else if (!timeSlots(v.date, v.appointmentType).includes(v.time))
+    e.time = 'This time is outside opening hours for the chosen day and appointment type. Please choose another time.';
   if (v.message.length > MESSAGE_MAX) e.message = `Please keep your message under ${MESSAGE_MAX} characters.`;
-  if (!v.consent) e.consent = 'Please confirm you agree so we can respond to your enquiry.';
+  if (!v.consent) e.consent = 'Please confirm you agree so we can respond to your request.';
   return e;
 }
+
+/* ── Booking helpers ─────────────────────────────────────── */
+
+const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h! * 60 + m!;
+};
+const toHHMM = (mins: number) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+const toLabel = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const suffix = h! >= 12 ? 'pm' : 'am';
+  return `${((h! + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${suffix}`;
+};
+
+/** Day of week for a "YYYY-MM-DD" string (0 = Sunday) */
+function weekday(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y!, m! - 1, d!).getDay();
+}
+
+const durationOf = (typeId: string) =>
+  booking.appointmentTypes.find((t) => t.id === typeId)?.minutes ??
+  Math.min(...booking.appointmentTypes.map((t) => t.minutes));
+
+/** Start times that fit inside opening hours for that date and appointment length */
+function timeSlots(dateISO: string, typeId: string): string[] {
+  if (!dateISO) return [];
+  const hours = booking.hours[weekday(dateISO)];
+  if (!hours) return [];
+  const open = toMinutes(hours[0]);
+  const lastStart = toMinutes(hours[1]) - durationOf(typeId);
+  const slots: string[] = [];
+  for (let t = open; t <= lastStart; t += booking.slotStepMinutes) slots.push(toHHMM(t));
+  return slots;
+}
+
+const isAppsScript = (url: string) => url.includes('script.google.com');
 
 function todayISO() {
   const d = new Date();
@@ -130,8 +182,11 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
       ...values,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     } as FormValues;
+    if ((name === 'date' || name === 'appointmentType') && next.time && !timeSlots(next.date, next.appointmentType).includes(next.time)) {
+      next.time = '';
+    }
     setValues(next);
-    if (status === 'not-connected' || status === 'error') setStatus('idle');
+    if (status === 'not-connected' || status === 'error' || status === 'success') setStatus('idle');
     // Re-validate live only after a field has been touched, so errors don't appear while typing for the first time
     if (touched[name as keyof FormValues]) setErrors(validate(next));
   };
@@ -153,6 +208,12 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
       return;
     }
 
+    // Spam trap filled in → pretend success without sending anything
+    if (values.website) {
+      setStatus('success');
+      return;
+    }
+
     if (!ENQUIRY_ENDPOINT) {
       // No backend connected — be honest and do NOT show a success state.
       setStatus('not-connected');
@@ -161,12 +222,24 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
 
     setStatus('submitting');
     try {
+      const type = booking.appointmentTypes.find((t) => t.id === values.appointmentType);
+      const payload = {
+        ...values,
+        appointmentTypeLabel: type?.label ?? values.appointmentType,
+        durationMinutes: type?.minutes ?? 60,
+        submittedAt: new Date().toISOString(),
+      };
+      // Google Apps Script only accepts "simple" cross-site requests, so send JSON as plain text there.
       const res = await fetch(ENQUIRY_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ ...values, submittedAt: new Date().toISOString() }),
+        headers: isAppsScript(ENQUIRY_ENDPOINT)
+          ? { 'Content-Type': 'text/plain;charset=utf-8' }
+          : { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+      if (data && data.ok === false) throw new Error(data.error || 'Request rejected');
       setStatus('success');
       setValues(initial);
       setTouched({});
@@ -263,7 +336,7 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
 
           {/* ── Enquiry form ── */}
           <div id="enquiry" className="card p-7 sm:p-9">
-            <Sub className="text-2xl font-bold">Appointment Enquiry</Sub>
+            <Sub className="text-2xl font-bold">Request an Appointment</Sub>
             <p className="mt-2 text-brand-ink/70">
               Fields marked <span aria-hidden="true" className="font-bold text-brand-green">*</span>
               <span className="sr-only">with an asterisk</span> are required.
@@ -273,7 +346,7 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
               <div className="mt-5 flex gap-3 rounded-xl border border-brand-yellow bg-brand-yellow/15 p-4 text-sm text-brand-forest">
                 <Info className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                 <p>
-                  <strong>Demonstration form:</strong> this form is not yet connected to the clinic, so enquiries cannot be
+                  <strong>Demonstration form:</strong> this form is not yet connected to the clinic, so requests cannot be
                   sent from here. Please contact the clinic directly using the details provided.
                 </p>
               </div>
@@ -298,9 +371,9 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
 
               <div>
                 <label htmlFor="email" className="field-label">
-                  Email Address <span className="font-normal text-brand-ink/50">(optional)</span>
+                  Email Address <span aria-hidden="true">*</span>
                 </label>
-                <input id="email" name="email" type="email" inputMode="email" autoComplete="email" placeholder="name@example.com" value={values.email} onChange={onChange} onBlur={onBlur} className="field" {...a11y('email')} />
+                <input id="email" name="email" type="email" inputMode="email" autoComplete="email" required placeholder="name@example.com" value={values.email} onChange={onChange} onBlur={onBlur} className="field" {...a11y('email')} />
                 <FieldError id="email-error" msg={err('email')} />
               </div>
 
@@ -332,15 +405,68 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
               </div>
 
               <div className="sm:col-span-2">
+                <fieldset>
+                  <legend className="field-label">
+                    Appointment Type <span aria-hidden="true">*</span>
+                  </legend>
+                  <div className="mt-1 grid gap-3 sm:grid-cols-2" role="radiogroup" {...a11y('appointmentType')}>
+                    {booking.appointmentTypes.map((t) => {
+                      const checked = values.appointmentType === t.id;
+                      return (
+                        <label
+                          key={t.id}
+                          className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-colors ${
+                            checked ? 'border-brand-green bg-brand-sage' : 'border-brand-green/20 bg-white hover:border-brand-green/40'
+                          }`}
+                        >
+                          <span className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="appointmentType"
+                              value={t.id}
+                              checked={checked}
+                              onChange={onChange}
+                              onBlur={onBlur}
+                              className="h-4 w-4 accent-brand-green"
+                            />
+                            <span className="font-semibold text-brand-forest">{t.label}</span>
+                          </span>
+                          <span className="text-sm text-brand-ink/60">{t.minutes} min</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1.5 text-sm text-brand-ink/60">Choose an initial assessment if this is your first visit.</p>
+                  <FieldError id="appointmentType-error" msg={err('appointmentType')} />
+                </fieldset>
+              </div>
+
+              <div>
                 <label htmlFor="date" className="field-label">
-                  Preferred Appointment Date <span className="font-normal text-brand-ink/50">(optional)</span>
+                  Preferred Date <span aria-hidden="true">*</span>
                 </label>
-                <input id="date" name="date" type="date" min={todayISO()} value={values.date} onChange={onChange} onBlur={onBlur} className="field sm:max-w-xs" {...a11y('date', 'date-hint')} />
-                <p id="date-hint" className="mt-1.5 text-sm text-brand-ink/60">
-                  Subject to availability — the clinic will confirm a suitable time with you.
-                </p>
+                <input id="date" name="date" type="date" required min={todayISO()} value={values.date} onChange={onChange} onBlur={onBlur} className="field" {...a11y('date')} />
                 <FieldError id="date-error" msg={err('date')} />
               </div>
+
+              <div>
+                <label htmlFor="time" className="field-label">
+                  Preferred Start Time <span aria-hidden="true">*</span>
+                </label>
+                <select id="time" name="time" required value={values.time} onChange={onChange} onBlur={onBlur} className="field disabled:cursor-not-allowed disabled:bg-brand-grey" disabled={!values.date || !booking.hours[weekday(values.date)]} {...a11y('time')}>
+                  <option value="">{values.date ? 'Select a time' : 'Choose a date first'}</option>
+                  {timeSlots(values.date, values.appointmentType).map((t) => (
+                    <option key={t} value={t}>
+                      {toLabel(t)}
+                    </option>
+                  ))}
+                </select>
+                <FieldError id="time-error" msg={err('time')} />
+              </div>
+
+              <p id="booking-hint" className="-mt-2 text-sm text-brand-ink/60 sm:col-span-2">
+                This is a request, not a confirmed booking. The clinic will check availability and confirm by email.
+              </p>
 
               <div className="sm:col-span-2">
                 <label htmlFor="message" className="field-label">
@@ -356,11 +482,17 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
                 <FieldError id="message-error" msg={err('message')} />
               </div>
 
+              {/* Spam trap: hidden from people, often filled in by bots */}
+              <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+                <label htmlFor="website">Leave this field empty</label>
+                <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" value={values.website} onChange={onChange} />
+              </div>
+
               <div className="sm:col-span-2">
                 <div className="flex items-start gap-3">
                   <input id="consent" name="consent" type="checkbox" required checked={values.consent} onChange={onChange} onBlur={onBlur} className="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded accent-brand-green" {...a11y('consent')} />
                   <label htmlFor="consent" className="cursor-pointer text-[0.95rem] leading-snug">
-                    I agree that Neuhope Physiotherapy Centre may use the information I have provided to respond to my enquiry.{' '}
+                    I agree that NeuHope Physiotherapy may use the information I have provided to respond to my request and arrange my appointment.{' '}
                     <span aria-hidden="true" className="font-bold text-brand-green">*</span>
                   </label>
                 </div>
@@ -377,7 +509,7 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
                   ) : (
                     <>
                       <Send className="h-[18px] w-[18px]" aria-hidden="true" />
-                      Submit Enquiry
+                      Request Appointment
                     </>
                   )}
                 </button>
@@ -389,8 +521,8 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
                   <div ref={statusRef} tabIndex={-1} role="status" className="flex gap-3 rounded-xl border border-brand-green/30 bg-brand-sage p-4 text-brand-forest">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-green" aria-hidden="true" />
                     <p>
-                      <strong>Thank you — your enquiry has been sent.</strong> The clinic will be in touch using your preferred
-                      contact method.
+                      <strong>Thank you — your appointment request has been sent.</strong> This is not yet a confirmed
+                      booking. The clinic will check availability and email you to confirm.
                     </p>
                   </div>
                 )}

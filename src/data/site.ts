@@ -57,12 +57,39 @@ export const clinic: ClinicDetails = {
 };
 
 /**
- * Enquiry form endpoint (e.g. Formspree, Basin, or your own API).
+ * Appointment request form endpoint.
+ * Paste the Google Apps Script "Web app" URL here (see README →
+ * "Connect appointment requests to Google Calendar"). It looks like:
+ *   https://script.google.com/macros/s/XXXXXXXX/exec
  * While this is null the form validates input but clearly tells the
  * visitor it is NOT connected and nothing has been sent.
- * The endpoint should accept a JSON POST and return a 2xx status on success.
  */
 export const ENQUIRY_ENDPOINT: string | null = null;
+
+/* ── Appointment booking rules ───────────────────────────── */
+/*  Used by the request form to offer start times inside opening
+    hours. Keep these in step with the opening hours above.
+    Times are 24-hour "HH:MM". Day 0 = Sunday … 6 = Saturday.
+    null = closed that day.                                   */
+
+export const booking = {
+  appointmentTypes: [
+    { id: 'initial', label: 'Initial assessment', minutes: 90 },
+    { id: 'follow-up', label: 'Follow-up session', minutes: 60 },
+  ],
+  /** Gap between offered start times */
+  slotStepMinutes: 30,
+  /** [opening time, closing time] — appointments must finish by closing time */
+  hours: {
+    0: null,
+    1: ['09:00', '18:00'],
+    2: ['09:00', '18:00'],
+    3: ['09:00', '18:00'],
+    4: ['09:00', '18:00'],
+    5: ['09:00', '18:00'],
+    6: ['09:00', '15:00'],
+  } as Record<number, [string, string] | null>,
+};
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
