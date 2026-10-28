@@ -223,7 +223,7 @@ Headings and paragraphs are in the files inside **src/components**. To find a se
 
 ### Appointment opening hours
 
-The start times patients can choose come from `booking` in `site.ts`. If the clinic's opening hours change, update both `hours` in the `clinic` section (what visitors see) and `hours` in the `booking` section (which times can be requested). Appointment lengths are set there too: 90 minutes for an initial assessment and 60 minutes for a follow-up session.
+The start times patients can choose come from `booking` in `site.ts`. If the clinic's opening hours change, update both `hours` in the `clinic` section (what visitors see) and `hours` in the `booking` section (which times can be requested). Appointment lengths are set there too: 90 minutes for an initial assessment and 60 minutes for a follow up session.
 
 ---
 

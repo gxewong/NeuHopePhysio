@@ -75,7 +75,7 @@ export const ENQUIRY_ENDPOINT: string | null = null;
 export const booking = {
   appointmentTypes: [
     { id: 'initial', label: 'Initial assessment', minutes: 90 },
-    { id: 'follow-up', label: 'Follow-up session', minutes: 60 },
+    { id: 'follow-up', label: 'Follow up session', minutes: 60 },
   ],
   /** Gap between offered start times */
   slotStepMinutes: 30,

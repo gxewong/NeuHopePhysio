@@ -429,7 +429,7 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
                               onBlur={onBlur}
                               className="h-4 w-4 accent-brand-green"
                             />
-                            <span className="font-semibold text-brand-forest">{t.label}</span>
+                            <span className="text-brand-forest">{t.label}</span>
                           </span>
                           <span className="text-sm text-brand-ink/60">{t.minutes} min</span>
                         </label>
