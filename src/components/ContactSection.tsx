@@ -70,7 +70,8 @@ function validate(v: FormValues): Errors {
 
   if (!v.date) e.date = 'Please choose a preferred date.';
   else if (v.date < todayISO()) e.date = 'Please choose today or a future date.';
-  else if (!booking.hours[weekday(v.date)]) e.date = 'The clinic is closed on this day. Please choose another date.';
+  else if (!booking.hours[weekday(v.date)] || closedDates[v.date] !== undefined)
+    e.date = `The clinic is closed on this day${closedDates[v.date] ? ` (${closedDates[v.date]})` : ''}. Please choose another date.`;
 
   if (!v.time) e.time = v.date ? 'Please choose a preferred start time.' : 'Please choose a date first, then a start time.';
   else if (!timeSlots(v.date, v.appointmentType).includes(v.time))
@@ -105,7 +106,7 @@ const durationOf = (typeId: string) =>
 
 /** Start times that fit inside opening hours for that date and appointment length */
 function timeSlots(dateISO: string, typeId: string): string[] {
-  if (!dateISO) return [];
+  if (isClosed(dateISO)) return [];
   const hours = booking.hours[weekday(dateISO)];
   if (!hours) return [];
   const open = toMinutes(hours[0]);
@@ -116,6 +117,10 @@ function timeSlots(dateISO: string, typeId: string): string[] {
 }
 
 const isAppsScript = (url: string) => url.includes('script.google.com');
+
+/** Public holidays / leave days, loaded from the "Closed dates" tab of the clinic's Google Sheet. */
+let closedDates: Record<string, string> = {};
+const isClosed = (dateISO: string) => !dateISO || !booking.hours[weekday(dateISO)] || closedDates[dateISO] !== undefined;
 
 function todayISO() {
   const d = new Date();
@@ -158,6 +163,8 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
   const [errors, setErrors] = useState<Errors>({});
   const [touched, setTouched] = useState<Partial<Record<keyof FormValues, boolean>>>({});
   const [status, setStatus] = useState<Status>('idle');
+  const [serverMessage, setServerMessage] = useState('');
+  const [, setClosedLoaded] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
 
@@ -166,6 +173,22 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
     const id = new URLSearchParams(window.location.search).get('service');
     const svc = services.find((s) => s.id === id);
     if (svc) setValues((v) => ({ ...v, service: svc.title }));
+  }, []);
+
+  // Load closed dates (public holidays, leave) from the clinic's Google Sheet
+  useEffect(() => {
+    if (!ENQUIRY_ENDPOINT || !isAppsScript(ENQUIRY_ENDPOINT)) return;
+    fetch(`${ENQUIRY_ENDPOINT}?action=closed-dates`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && d.ok && d.closedDates) {
+          closedDates = d.closedDates;
+          setClosedLoaded(true);
+        }
+      })
+      .catch(() => {
+        /* not critical — the script checks closed dates again when a request is sent */
+      });
   }, []);
 
   useEffect(() => {
@@ -239,12 +262,26 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
       });
       if (!res.ok) throw new Error(`Request failed with ${res.status}`);
       const data = await res.json().catch(() => ({}));
-      if (data && data.ok === false) throw new Error(data.error || 'Request rejected');
+      if (data && data.ok === false) {
+        // The script found a problem with a specific field — show it next to that field
+        if (data.field && data.field in initial && data.message) {
+          const field = data.field as keyof FormValues;
+          setErrors((er) => ({ ...er, [field]: data.message }));
+          setTouched((t) => ({ ...t, [field]: true }));
+          setStatus('idle');
+          formRef.current?.querySelector<HTMLElement>(`[name="${field}"]`)?.focus();
+          return;
+        }
+        setServerMessage(data.message || '');
+        setStatus('error');
+        return;
+      }
       setStatus('success');
       setValues(initial);
       setTouched({});
       setErrors({});
     } catch {
+      setServerMessage('');
       setStatus('error');
     }
   };
@@ -453,7 +490,7 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
                 <label htmlFor="time" className="field-label">
                   Preferred Start Time <span aria-hidden="true">*</span>
                 </label>
-                <select id="time" name="time" required value={values.time} onChange={onChange} onBlur={onBlur} className="field disabled:cursor-not-allowed disabled:bg-brand-grey" disabled={!values.date || !booking.hours[weekday(values.date)]} {...a11y('time')}>
+                <select id="time" name="time" required value={values.time} onChange={onChange} onBlur={onBlur} className="field disabled:cursor-not-allowed disabled:bg-brand-grey" disabled={isClosed(values.date)} {...a11y('time')}>
                   <option value="">{values.date ? 'Select a time' : 'Choose a date first'}</option>
                   {timeSlots(values.date, values.appointmentType).map((t) => (
                     <option key={t} value={t}>
@@ -530,8 +567,8 @@ export default function ContactSection({ asPage = false }: { asPage?: boolean })
                   <div ref={statusRef} tabIndex={-1} role="alert" className="flex gap-3 rounded-xl border border-red-300 bg-red-50 p-4 text-red-900">
                     <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
                     <p>
-                      <strong>Sorry, your enquiry could not be sent.</strong> Please try again in a moment, or contact the clinic
-                      directly using the details on this page.
+                      <strong>Sorry, your request could not be sent.</strong>{' '}
+                      {serverMessage || 'Please try again in a moment, or contact the clinic directly using the details on this page.'}
                     </p>
                   </div>
                 )}

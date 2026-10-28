@@ -10,6 +10,14 @@
  *      Decline → the event is removed and the patient is emailed that the
  *                clinic will contact them to arrange another time.
  *
+ * Protection built in:
+ *   • Every request is checked again here (opening hours, closed dates, past
+ *     dates, email/phone format), even if someone bypasses the website.
+ *   • Rate limits stop one person — or a spam bot — flooding the calendar and inbox.
+ *   • If something goes wrong, the clinic gets an alert email.
+ *   • Closed dates (public holidays, leave) are read from the "Closed dates"
+ *     tab of the spreadsheet, and the website blocks those dates too.
+ *
  * Setup instructions are in the project README:
  *   "Connect appointment requests to Google Calendar".
  *
@@ -34,7 +42,30 @@ const CONFIG = {
   /** Appointment lengths in minutes — must match the website's appointment types. */
   DURATIONS: { 'initial': 90, 'follow-up': 60 },
 
+  /**
+   * Bookable hours — must match `booking.hours` in the website's src/data/site.ts.
+   * Day 0 = Sunday … 6 = Saturday. null = closed. Appointments must finish by closing time.
+   */
+  HOURS: {
+    0: null,
+    1: ['09:00', '18:00'],
+    2: ['09:00', '18:00'],
+    3: ['09:00', '18:00'],
+    4: ['09:00', '18:00'],
+    5: ['09:00', '18:00'],
+    6: ['09:00', '15:00'],
+  },
+  /** Start times must fall on this step, e.g. 30 → 9:00, 9:30, 10:00 … */
+  SLOT_STEP_MINUTES: 30,
+  /** How far ahead patients may request (in days). */
+  MAX_DAYS_AHEAD: 180,
+
+  /** Rate limits (per rolling hour). */
+  MAX_REQUESTS_PER_PERSON_PER_HOUR: 3, // same email or same phone number
+  MAX_REQUESTS_TOTAL_PER_HOUR: 20, // everyone combined — protects the daily email limit
+
   SHEET_NAME: 'Appointment requests',
+  CLOSED_SHEET_NAME: 'Closed dates',
 };
 
 /* ========================= END OF CONFIG ========================= */
@@ -45,12 +76,13 @@ const HEADERS = [
 ];
 const COL = Object.fromEntries(HEADERS.map((h, i) => [h, i + 1]));
 
-/** Run this once from the Apps Script editor to create the sheet and grant permissions. */
+/** Run this once from the Apps Script editor to create the sheets and grant permissions. */
 function setup() {
   const sheet = getSheet_();
+  const closed = getClosedSheet_();
   const cal = getCalendar_();
-  Logger.log('Setup complete. Sheet: "%s". Calendar: "%s". Notifications go to: %s',
-    sheet.getName(), cal.getName(), notifyEmail_());
+  Logger.log('Setup complete. Sheets: "%s" and "%s". Calendar: "%s". Notifications go to: %s',
+    sheet.getName(), closed.getName(), cal.getName(), notifyEmail_());
 }
 
 /* ----------------------- Website form → here ----------------------- */
@@ -62,16 +94,15 @@ function doPost(e) {
     // Spam trap from the website — silently ignore
     if (d.website) return json_({ ok: true });
 
-    const required = ['fullName', 'phone', 'email', 'appointmentType', 'service', 'date', 'time'];
-    const missing = required.filter((k) => !String(d[k] || '').trim());
-    if (missing.length) return json_({ ok: false, error: 'Missing: ' + missing.join(', ') });
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || !/^\d{2}:\d{2}$/.test(d.time)) {
-      return json_({ ok: false, error: 'Invalid date or time' });
-    }
+    const problem = validate_(d);
+    if (problem) return json_(Object.assign({ ok: false }, problem));
 
     const lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
+      const limited = checkRateLimit_(d);
+      if (limited) return json_(Object.assign({ ok: false }, limited));
+
       const minutes = CONFIG.DURATIONS[d.appointmentType] || 60;
       const start = Utilities.parseDate(d.date + ' ' + d.time, CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm');
       const end = new Date(start.getTime() + minutes * 60 * 1000);
@@ -98,7 +129,156 @@ function doPost(e) {
     return json_({ ok: true });
   } catch (err) {
     console.error(err);
-    return json_({ ok: false, error: 'Server error' });
+    alertClinic_('Saving an appointment request failed', err, e);
+    return json_({ ok: false, error: 'server', message: 'Something went wrong on our side.' });
+  }
+}
+
+/* ------------------- Checks (repeat the website's rules) ------------------- */
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Returns null if the request is fine, or { error, field?, message } if not. */
+function validate_(d) {
+  const bad = (field, message) => ({ error: 'invalid', field: field, message: message });
+  const str = (k) => String(d[k] == null ? '' : d[k]).trim();
+
+  if (str('fullName').length < 2 || str('fullName').length > 120) return bad('fullName', 'Please enter your full name.');
+  const digits = str('phone').replace(/\D/g, '');
+  if (!/^\+?[\d\s\-()]+$/.test(str('phone')) || digits.length < 8 || digits.length > 15) {
+    return bad('phone', 'Please enter a valid phone number.');
+  }
+  if (!EMAIL_RE.test(str('email')) || str('email').length > 200) return bad('email', 'Please enter a valid email address.');
+  if (!CONFIG.DURATIONS[str('appointmentType')]) return bad('appointmentType', 'Please choose the type of appointment.');
+  if (!str('service') || str('service').length > 120) return bad('service', 'Please choose a service.');
+  if (str('message').length > 1000) return bad('message', 'Please keep your message shorter.');
+
+  const date = str('date');
+  const time = str('time');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return bad('date', 'Please choose a valid date.');
+  if (!/^\d{2}:\d{2}$/.test(time)) return bad('time', 'Please choose a valid start time.');
+
+  const today = fmt_(new Date(), 'yyyy-MM-dd');
+  if (date < today) return bad('date', 'Please choose today or a future date.');
+  const latest = fmt_(new Date(Date.now() + CONFIG.MAX_DAYS_AHEAD * 86400000), 'yyyy-MM-dd');
+  if (date > latest) return bad('date', 'Please choose a date within the next ' + Math.round(CONFIG.MAX_DAYS_AHEAD / 30) + ' months.');
+
+  const closed = getClosedDates_();
+  if (closed[date] !== undefined) {
+    return { error: 'closed', field: 'date', message: 'The clinic is closed on this day' + (closed[date] ? ' (' + closed[date] + ')' : '') + '. Please choose another date.' };
+  }
+
+  const start = Utilities.parseDate(date + ' 12:00', CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  const day = Number(fmt_(start, 'u')) % 7; // 'u' = 1 (Mon) … 7 (Sun) → 0 = Sunday
+  const hours = CONFIG.HOURS[day];
+  if (!hours) return { error: 'closed', field: 'date', message: 'The clinic is closed on this day. Please choose another date.' };
+
+  const mins = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+  const t = mins(time);
+  const length = CONFIG.DURATIONS[str('appointmentType')];
+  if ((t - mins(hours[0])) % CONFIG.SLOT_STEP_MINUTES !== 0 || t < mins(hours[0]) || t + length > mins(hours[1])) {
+    return bad('time', 'This time is outside opening hours for the chosen day and appointment type.');
+  }
+  if (date === today && t <= mins(fmt_(new Date(), 'HH:mm'))) return bad('time', 'Please choose a time later today or another day.');
+  return null;
+}
+
+/** Counts requests per email, per phone and overall in the last hour. Call inside the lock. */
+function checkRateLimit_(d) {
+  const cache = CacheService.getScriptCache();
+  const hourKey = fmt_(new Date(), 'yyyyMMddHH');
+  const keys = {
+    email: 'rl:e:' + hourKey + ':' + String(d.email).trim().toLowerCase(),
+    phone: 'rl:p:' + hourKey + ':' + String(d.phone).replace(/\D/g, ''),
+    all: 'rl:all:' + hourKey,
+  };
+  const counts = cache.getAll(Object.values(keys));
+  const n = (k) => Number(counts[k] || 0);
+
+  if (n(keys.email) >= CONFIG.MAX_REQUESTS_PER_PERSON_PER_HOUR || n(keys.phone) >= CONFIG.MAX_REQUESTS_PER_PERSON_PER_HOUR) {
+    return { error: 'rate_limited', message: 'You have already sent several requests recently. Please call or WhatsApp the clinic instead.' };
+  }
+  if (n(keys.all) >= CONFIG.MAX_REQUESTS_TOTAL_PER_HOUR) {
+    alertClinic_('Appointment form paused for this hour',
+      'More than ' + CONFIG.MAX_REQUESTS_TOTAL_PER_HOUR + ' requests arrived in one hour, so new requests are being turned away until the next hour. ' +
+      'If these are real patients, raise MAX_REQUESTS_TOTAL_PER_HOUR in the script. If it looks like spam, nothing else needs doing.', null);
+    return { error: 'rate_limited', message: 'We are receiving a lot of requests right now. Please call or WhatsApp the clinic instead.' };
+  }
+
+  const ttl = 3600;
+  cache.putAll({
+    [keys.email]: String(n(keys.email) + 1),
+    [keys.phone]: String(n(keys.phone) + 1),
+    [keys.all]: String(n(keys.all) + 1),
+  }, ttl);
+  return null;
+}
+
+/* ------------------------- Closed dates ------------------------- */
+
+function getClosedSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.CLOSED_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.CLOSED_SHEET_NAME);
+    sheet.appendRow(['Date', 'Reason (optional, shown to patients)']);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#E6F0EF');
+    sheet.setColumnWidth(1, 140);
+    sheet.setColumnWidth(2, 320);
+    sheet.getRange('A2:A').setNumberFormat('yyyy-mm-dd');
+  }
+  return sheet;
+}
+
+/** { 'yyyy-MM-dd': 'reason' } for every date listed in the "Closed dates" tab */
+function getClosedDates_() {
+  const sheet = getClosedSheet_();
+  const last = sheet.getLastRow();
+  const out = {};
+  if (last < 2) return out;
+  sheet.getRange(2, 1, last - 1, 2).getValues().forEach((r) => {
+    if (!r[0]) return;
+    const key = r[0] instanceof Date ? fmt_(r[0], 'yyyy-MM-dd') : String(r[0]).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(key)) out[key] = String(r[1] || '').trim();
+  });
+  return out;
+}
+
+/* ------------------------- Error alerts ------------------------- */
+
+/** Emails the clinic when something fails. At most one alert per 30 minutes per subject. */
+function alertClinic_(subject, err, e) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const key = 'alert:' + subject;
+    if (cache.get(key)) return;
+    cache.put(key, '1', 1800);
+    const detail = err instanceof Error ? (err.stack || err.message) : String(err);
+    MailApp.sendEmail({
+      to: notifyEmail_(),
+      subject: '⚠️ ' + subject + ' – website appointment form',
+      htmlBody:
+        '<div style="font-family:Arial,sans-serif;max-width:560px;color:#233534;line-height:1.6">' +
+        '<p><b>' + esc_(subject) + '.</b></p>' +
+        '<pre style="white-space:pre-wrap;background:#f4f7f7;padding:12px;border-radius:8px">' + esc_(detail) + '</pre>' +
+        (e ? '<p>A patient may have tried to send a request and seen an error. Their details (if any) were:</p><pre style="white-space:pre-wrap;background:#f4f7f7;padding:12px;border-radius:8px">' +
+          esc_(safePreview_(e)) + '</pre>' : '') +
+        '<p>See <b>Executions</b> in the Apps Script editor for more detail. The README section "If something goes wrong" lists common fixes.</p></div>',
+      name: CONFIG.CLINIC_NAME,
+    });
+  } catch (ignored) {
+    console.error('Could not send alert', ignored);
+  }
+}
+
+function safePreview_(e) {
+  try {
+    const d = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    return ['fullName', 'phone', 'email', 'appointmentTypeLabel', 'service', 'date', 'time']
+      .map((k) => k + ': ' + clean_(d[k])).join('\n');
+  } catch (x) {
+    return '(could not read request)';
   }
 }
 
@@ -106,6 +286,31 @@ function doPost(e) {
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
+
+  // Website asks which dates are closed (public holidays, leave)
+  if (p.action === 'closed-dates') {
+    try {
+      const today = fmt_(new Date(), 'yyyy-MM-dd');
+      const all = getClosedDates_();
+      const upcoming = {};
+      Object.keys(all).filter((k) => k >= today).forEach((k) => { upcoming[k] = all[k]; });
+      return json_({ ok: true, closedDates: upcoming });
+    } catch (err) {
+      alertClinic_('Reading closed dates failed', err, null);
+      return json_({ ok: false, error: 'server' });
+    }
+  }
+
+  try {
+    return handleDecision_(p);
+  } catch (err) {
+    console.error(err);
+    alertClinic_('Accepting or declining a request failed', err, null);
+    return page_('Something went wrong', '<p>The request could not be updated. Please try again in a minute. If it keeps happening, check <b>Executions</b> in the Apps Script editor.</p>');
+  }
+}
+
+function handleDecision_(p) {
   if (!p.id || !p.token || ['accept', 'decline'].indexOf(p.action) === -1) {
     return page_('NeuHope appointments', '<p>This link is not valid.</p>');
   }

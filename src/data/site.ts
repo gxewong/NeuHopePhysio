@@ -68,7 +68,10 @@ export const ENQUIRY_ENDPOINT: string | null = null;
 
 /* ── Appointment booking rules ───────────────────────────── */
 /*  Used by the request form to offer start times inside opening
-    hours. Keep these in step with the opening hours above.
+    hours. Keep these in step with the opening hours above AND with
+    HOURS in google-apps-script/Code.gs (the script checks them too).
+    Public holidays and leave days go in the "Closed dates" tab of the
+    clinic's Google Sheet — no code change needed.
     Times are 24-hour "HH:MM". Day 0 = Sunday … 6 = Saturday.
     null = closed that day.                                   */
 

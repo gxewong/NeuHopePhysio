@@ -223,7 +223,13 @@ Headings and paragraphs are in the files inside **src/components**. To find a se
 
 ### Appointment opening hours
 
-The start times patients can choose come from `booking` in `site.ts`. If the clinic's opening hours change, update both `hours` in the `clinic` section (what visitors see) and `hours` in the `booking` section (which times can be requested). Appointment lengths are set there too: 90 minutes for an initial assessment and 60 minutes for a follow up session.
+The start times patients can choose come from `booking` in `site.ts`. If the clinic's opening hours change, update **three** places so they all match:
+
+1. `hours` in the `clinic` section of `site.ts` (what visitors see)
+2. `hours` in the `booking` section of `site.ts` (which times the form offers)
+3. `HOURS` in **google-apps-script/Code.gs** (which times the script accepts). After changing it, publish a new version (see section 7, "If you change the script later").
+
+Public holidays and leave days don't need any code change. See "Closing the clinic for a day" in section 7. Appointment lengths are set there too: 90 minutes for an initial assessment and 60 minutes for a follow up session.
 
 ---
 
@@ -241,6 +247,12 @@ Then:
 - **Decline:** the event is removed and the patient receives an email saying the clinic will contact them to arrange another time.
 
 Everything runs inside the clinic's own Google account and is free. Setup takes about 20 minutes, and you only do it once.
+
+**Built-in protection:**
+
+- **Double-checking:** the script checks every request again (opening hours, closed dates, past dates, email and phone format), even if someone tries to send requests without using the website.
+- **Spam limits:** each email address or phone number can send up to **3 requests an hour**, and the form accepts up to **20 requests an hour** in total, which protects Gmail's daily sending limit. These numbers can be changed in the script's CONFIG section.
+- **Error alerts:** if something goes wrong (for example, the script lost permission to the calendar), the clinic receives a ⚠️ alert email, at most one every 30 minutes for the same problem.
 
 > **Until this is done**, the form on the website clearly tells visitors it is not connected, so nobody thinks their request was sent.
 
@@ -281,7 +293,7 @@ Everything runs inside the clinic's own Google account and is free. Setup takes 
 3. A box appears saying **Authorization required**. Click **Review permissions** and choose the clinic's Google account.
 4. You'll see **"Google hasn't verified this app"**. This is normal, because the script was written for the clinic rather than published by a company. Click **Advanced**, then **Go to NeuHope appointments (unsafe)**.
 5. Click **Allow**. The script needs access to the spreadsheet, the calendar and sending email.
-6. At the bottom, the log should say **Setup complete**. Back in the spreadsheet tab, a sheet called **Appointment requests** now has column headings.
+6. At the bottom, the log should say **Setup complete**. Back in the spreadsheet tab, there are two new tabs: **Appointment requests** (with column headings) and **Closed dates**.
 
 ### Step 5: publish the script so the website can reach it
 
@@ -330,6 +342,14 @@ Everything runs inside the clinic's own Google account and is free. Setup takes 
 - To suggest a different time, tap **Decline** (the patient is told the clinic will be in touch), then call or WhatsApp them and add the new appointment to your calendar yourself.
 - The **Appointment requests** sheet keeps a record of every request and its status (Pending, Confirmed or Declined). You can sort and filter it like any spreadsheet. Don't rename the sheet or its columns, because the script uses them.
 
+### Closing the clinic for a day (public holidays, leave)
+
+1. Open the spreadsheet and go to the **Closed dates** tab.
+2. Type the date in column A (for example `2027-02-06`) and, if you like, a reason in column B (for example `Chinese New Year`). The reason is shown to patients.
+3. That's it. Within a minute, the website stops offering that date, and the script turns away any request for it.
+
+Add a whole year of public holidays at once if you like. Past dates can stay; they're ignored.
+
 ### If you change the script later
 
 Saving the code isn't enough. You also need to publish a new version, or the website keeps using the old one:
@@ -343,6 +363,9 @@ Saving the code isn't enough. You also need to publish a new version, or the web
 | No email arrives | Check the Spam folder. In Apps Script, click **Executions** (list icon on the left) to see any errors. |
 | Calendar times are an hour or more off | Set the time zone to Kuala Lumpur (Step 3), then publish a new version. |
 | Clicking Accept says "Already handled" | That request was already accepted or declined. Check the Status column in the sheet. |
+| You get a ⚠️ **"Appointment form paused for this hour"** email | More than 20 requests arrived in one hour. If it's spam, do nothing; it resets on the hour. If they're real patients, raise `MAX_REQUESTS_TOTAL_PER_HOUR` in the script and publish a new version. |
+| You get a ⚠️ **"Saving an appointment request failed"** email | The email shows the error and the patient's details, so you can contact them. The most common cause is the script needing permission again: open Apps Script, run **setup**, and click Allow. |
+| Patients say a time they wanted wasn't offered | Check `HOURS` in the script and `booking` in `site.ts` match the clinic's real opening hours. |
 
 > **Privacy:** patients' details are stored in the clinic's Google account. Mention this in the clinic's privacy policy, and only share the sheet with staff who need it.
 
