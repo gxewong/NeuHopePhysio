@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Offset anchor jumps for the sticky header */
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-white font-sans text-brand-ink antialiased;
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading text-brand-green;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    text-wrap: balance; /* even line lengths, no single-word last lines */
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img {
+    @apply max-w-full;
+  }
+
+  :focus-visible {
+    outline: 3px solid #f4c542;
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: #f4c542;
+    color: #1B4341;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .container-site {
+    @apply mx-auto w-full max-w-site px-5 sm:px-8;
+  }
+
+  .section {
+    @apply py-20 md:py-28;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 font-sans text-xs font-semibold uppercase tracking-[0.16em] text-brand-green;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply inline-block h-[3px] w-6 rounded-full bg-brand-yellow;
+  }
+
+  .section-title {
+    @apply text-3xl font-extrabold sm:text-4xl lg:text-[2.75rem];
+  }
+
+  .lead {
+    @apply text-lg leading-relaxed text-brand-ink/80;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full px-6 py-3 font-heading text-[0.95rem] font-bold transition-all duration-200 ease-out;
+  }
+  .btn-primary {
+    @apply btn bg-brand-green text-white shadow-soft hover:-translate-y-0.5 hover:bg-brand-forest hover:shadow-lift;
+  }
+  .btn-accent {
+    @apply btn bg-brand-yellow text-brand-forest hover:-translate-y-0.5 hover:bg-[#f7d066] hover:shadow-lift;
+  }
+  .btn-secondary {
+    @apply btn border-2 border-brand-green/20 bg-white text-brand-green hover:border-brand-green hover:bg-brand-sage;
+  }
+  .btn-ghost-light {
+    @apply btn border-2 border-white/30 text-white hover:border-white hover:bg-white/10;
+  }
+
+  .card {
+    @apply rounded-card border border-brand-green/10 bg-white shadow-soft;
+  }
+
+  .icon-badge {
+    @apply relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-sage text-brand-green;
+  }
+  .icon-badge::after {
+    content: '';
+    @apply absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-brand-yellow ring-2 ring-white;
+  }
+
+  /* Form */
+  .field-label {
+    @apply mb-1.5 block text-sm font-semibold text-brand-forest;
+  }
+  .field {
+    @apply block w-full rounded-xl border border-brand-green/20 bg-white px-4 py-3 text-base text-brand-ink transition-colors placeholder:text-brand-ink/40 hover:border-brand-green/40 focus:border-brand-green focus:outline-none focus:ring-4 focus:ring-brand-yellow/40;
+  }
+  .field[aria-invalid='true'] {
+    @apply border-red-700 focus:ring-red-200;
+  }
+  .field-error {
+    @apply mt-1.5 flex items-center gap-1.5 text-sm font-medium text-red-700;
+  }
+
+  /* Placeholder text shown for unverified clinic details */
+  .placeholder-text {
+    @apply rounded bg-brand-yellow/20 px-1.5 py-0.5 font-mono text-[0.85em] text-brand-forest;
+  }
+}
+
+.skip-link {
+  @apply sr-only;
+}
+.skip-link:focus {
+  @apply not-sr-only fixed left-4 top-4 z-[100] rounded-lg bg-brand-yellow px-4 py-2 font-semibold text-brand-forest;
+}
+
+/* Placeholders sitting on dark-green panels */
+.bg-brand-green .placeholder-text,
+.bg-brand-forest .placeholder-text {
+  @apply bg-white/10 text-white/85;
+}
