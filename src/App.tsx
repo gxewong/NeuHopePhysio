@@ -12,7 +12,7 @@ import FAQSection from './components/FAQSection';
 import ContactSection from './components/ContactSection';
 import Footer from './components/Footer';
 import BackToTop from './components/BackToTop';
-import GalleryPage from './components/GalleryPage';
+import GallerySection from './components/GallerySection';
 import { SHOW_TESTIMONIALS } from './data/site';
 import { currentPage } from './route';
 import { useEffect } from 'react';
@@ -31,8 +31,8 @@ export default function App() {
       </a>
       <Navbar />
       <main id="main">
-        {currentPage === 'gallery' ? (
-          <GalleryPage />
+        {currentPage === 'contact' ? (
+          <ContactSection asPage />
         ) : (
           <>
             <HeroSection />
@@ -44,8 +44,8 @@ export default function App() {
             <OurApproach />
             <CallToAction />
             {SHOW_TESTIMONIALS && <TestimonialsSection />}
+            <GallerySection />
             <FAQSection />
-            <ContactSection />
           </>
         )}
       </main>

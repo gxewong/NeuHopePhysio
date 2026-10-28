@@ -121,15 +121,15 @@ export const team: TeamMember[] = [
 
 /* ── Navigation ───────────────────────────────────────────── */
 
-export const navLinks: { id: string; label: string; page?: 'gallery' }[] = [
+export const navLinks: { id: string; label: string; page?: 'contact' }[] = [
   { id: 'home', label: 'Home' },
   { id: 'about', label: 'About Us' },
   ...(team.length > 0 ? [{ id: 'team', label: 'Our Team' }] : []),
   { id: 'services', label: 'Services' },
   { id: 'approach', label: 'Our Approach' },
-  { id: 'gallery', label: 'Gallery', page: 'gallery' },
+  { id: 'gallery', label: 'Gallery' },
   { id: 'faqs', label: 'FAQs' },
-  { id: 'contact', label: 'Contact' },
+  { id: 'contact', label: 'Contact', page: 'contact' },
 ];
 
 /* ── Services ─────────────────────────────────────────────── */
@@ -226,7 +226,7 @@ export const faqs = [
 export const SHOW_TESTIMONIALS = true;
 export const testimonials: { quote: string; attribution: string }[] = [];
 
-/* ── Gallery page (/gallery) ──────────────────────────────── */
+/* ── Gallery (home page, before the FAQs) ──────────────────────────────── */
 /*  Photos of the clinic. Put each photo in the  public/gallery
     folder, then add a line below, for example:
       { src: "/gallery/reception.jpg", alt: "Reception area", caption: "Our reception" },

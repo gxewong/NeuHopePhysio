@@ -1,5 +1,5 @@
 import { ArrowRight, CalendarCheck } from 'lucide-react';
-import { toSection } from '../route';
+import { toContact, toPage } from '../route';
 
 export default function CallToAction() {
   return (
@@ -22,11 +22,11 @@ export default function CallToAction() {
             explore your options.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a href={toSection('contact')} className="btn-accent w-full sm:w-auto">
+            <a href={toContact()} className="btn-accent w-full sm:w-auto">
               <CalendarCheck className="h-[18px] w-[18px]" aria-hidden="true" />
               Book an Appointment
             </a>
-            <a href={toSection('contact-details')} className="btn-ghost-light group w-full sm:w-auto">
+            <a href={toPage('contact', 'contact-details')} className="btn-ghost-light group w-full sm:w-auto">
               Contact Our Team
               <ArrowRight className="h-[18px] w-[18px] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
             </a>

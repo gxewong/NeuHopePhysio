@@ -1,7 +1,7 @@
 import { Mail, MapPin, Phone } from 'lucide-react';
 import Logo from './Logo';
 import SocialIcon from './SocialIcon';
-import { toPage, toSection } from '../route';
+import { toContact, toPage, toSection } from '../route';
 import ClinicValue from './ClinicValue';
 import { clinic, navLinks, services, telHref } from '../data/site';
 
@@ -92,7 +92,7 @@ export default function Footer() {
               </ClinicValue>
             </li>
           </ul>
-          <a href={toSection('contact')} className="btn-accent mt-7 !min-h-[44px] !px-5 !py-2.5 text-sm">
+          <a href={toContact()} className="btn-accent mt-7 !min-h-[44px] !px-5 !py-2.5 text-sm">
             Book an Appointment
           </a>
         </div>

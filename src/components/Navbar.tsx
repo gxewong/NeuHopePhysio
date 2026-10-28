@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarCheck, Menu, X } from 'lucide-react';
 import Logo from './Logo';
 import { navLinks } from '../data/site';
-import { currentPage, toPage, toSection } from '../route';
+import { currentPage, toContact, toPage, toSection } from '../route';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [active, setActive] = useState<string>(currentPage === 'gallery' ? 'gallery' : 'home');
+  const [active, setActive] = useState<string>(currentPage === 'contact' ? 'contact' : 'home');
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -90,7 +90,7 @@ export default function Navbar() {
         </ul>
 
         <div className="flex items-center gap-3">
-          <a href={toSection('contact')} className="btn-primary hidden whitespace-nowrap !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
+          <a href={toContact()} className="btn-primary hidden whitespace-nowrap !min-h-[44px] !px-5 !py-2.5 sm:inline-flex">
             <CalendarCheck className="h-4 w-4" aria-hidden="true" />
             Book an Appointment
           </a>
@@ -133,7 +133,7 @@ export default function Navbar() {
           ))}
         </ul>
         <div className="container-site pb-10">
-          <a href={toSection('contact')} onClick={() => setOpen(false)} className="btn-primary w-full">
+          <a href={toContact()} onClick={() => setOpen(false)} className="btn-primary w-full">
             <CalendarCheck className="h-4 w-4" aria-hidden="true" />
             Book an Appointment
           </a>

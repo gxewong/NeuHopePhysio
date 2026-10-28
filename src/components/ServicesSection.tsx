@@ -1,14 +1,10 @@
 import { ArrowRight, MessageCircleQuestion } from 'lucide-react';
 import { services } from '../data/site';
 import SectionHeading from './SectionHeading';
+import { toContact } from '../route';
 
-/**
- * "Enquire about this service" pre-selects the service in the enquiry form
- * (via a custom event) and scrolls to it — a real destination rather than a dead link.
- */
-function selectService(id: string) {
-  window.dispatchEvent(new CustomEvent('neuhope:select-service', { detail: id }));
-}
+/* "Enquire about this service" opens the contact page with that service
+   already selected in the enquiry form. */
 
 export default function ServicesSection() {
   return (
@@ -29,8 +25,7 @@ export default function ServicesSection() {
                 <h3 className="mt-6 text-xl font-bold">{title}</h3>
                 <p className="mt-3 flex-1 text-[0.98rem] leading-relaxed text-brand-ink/75">{description}</p>
                 <a
-                  href="#contact"
-                  onClick={() => selectService(id)}
+                  href={toContact(id)}
                   className="mt-6 inline-flex items-center gap-1.5 self-start font-heading text-[0.95rem] font-bold text-brand-green underline-offset-4 hover:underline"
                 >
                   Enquire about this service
@@ -58,7 +53,7 @@ export default function ServicesSection() {
               </p>
             </div>
           </div>
-          <a href="#contact" className="btn-primary shrink-0">
+          <a href={toContact()} className="btn-primary shrink-0">
             Contact Us
           </a>
         </div>

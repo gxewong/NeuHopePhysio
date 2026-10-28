@@ -99,7 +99,9 @@ function ContactRow({ icon: Icon, label, children }: { icon: typeof Phone; label
 
 /* ── Component ──────────────────────────────────────────── */
 
-export default function ContactSection() {
+export default function ContactSection({ asPage = false }: { asPage?: boolean }) {
+  const Heading = asPage ? 'h1' : 'h2';
+  const Sub = asPage ? 'h2' : 'h3';
   const [values, setValues] = useState<FormValues>(initial);
   const [errors, setErrors] = useState<Errors>({});
   const [touched, setTouched] = useState<Partial<Record<keyof FormValues, boolean>>>({});
@@ -107,16 +109,16 @@ export default function ContactSection() {
   const formRef = useRef<HTMLFormElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
 
-  // Pre-select a service when a visitor clicks "Enquire about this service"
+  // Pre-select a service when arriving from "Enquire about this service" (/contact?service=…)
   useEffect(() => {
-    const handler = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail;
-      const svc = services.find((s) => s.id === id);
-      if (svc) setValues((v) => ({ ...v, service: svc.title }));
-    };
-    window.addEventListener('neuhope:select-service', handler);
-    return () => window.removeEventListener('neuhope:select-service', handler);
+    const id = new URLSearchParams(window.location.search).get('service');
+    const svc = services.find((s) => s.id === id);
+    if (svc) setValues((v) => ({ ...v, service: svc.title }));
   }, []);
+
+  useEffect(() => {
+    if (asPage) document.title = `Contact & Appointments | ${clinic.name}`;
+  }, [asPage]);
 
   useEffect(() => {
     if (status !== 'idle' && status !== 'submitting') statusRef.current?.focus();
@@ -187,9 +189,9 @@ export default function ContactSection() {
     <section id="contact" aria-labelledby="contact-title" className="section bg-brand-grey">
       <div className="container-site">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 id="contact-title" className="section-title">
+          <Heading id="contact-title" className="section-title">
             Contact &amp; Appointments
-          </h2>
+          </Heading>
           <p className="lead mt-5">
             Have questions about our services or want to arrange a visit?
             <br />
@@ -201,9 +203,9 @@ export default function ContactSection() {
           {/* ── Contact details ── */}
           <aside id="contact-details" aria-labelledby="contact-details-title" className="relative overflow-hidden rounded-[1.5rem] bg-brand-green p-7 text-white sm:p-9">
             <div aria-hidden="true" className="absolute -bottom-16 -right-16 h-56 w-56 rounded-full border-[28px] border-white/5" />
-            <h3 id="contact-details-title" className="text-2xl font-bold !text-white">
+            <Sub id="contact-details-title" className="text-2xl font-bold !text-white">
               Contact Information
-            </h3>
+            </Sub>
             <p className="mt-2 text-white/75">Reach the clinic directly using any of the details below.</p>
 
             <ul className="relative mt-8 space-y-6">
@@ -260,8 +262,8 @@ export default function ContactSection() {
           </aside>
 
           {/* ── Enquiry form ── */}
-          <div className="card p-7 sm:p-9">
-            <h3 className="text-2xl font-bold">Appointment Enquiry</h3>
+          <div id="enquiry" className="card p-7 sm:p-9">
+            <Sub className="text-2xl font-bold">Appointment Enquiry</Sub>
             <p className="mt-2 text-brand-ink/70">
               Fields marked <span aria-hidden="true" className="font-bold text-brand-green">*</span>
               <span className="sr-only">with an asterisk</span> are required.

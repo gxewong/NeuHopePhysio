@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { faqs } from '../data/site';
 import SectionHeading from './SectionHeading';
+import { toContact } from '../route';
 
 export default function FAQSection() {
   const [open, setOpen] = useState<number | null>(0);
@@ -26,7 +27,7 @@ export default function FAQSection() {
               Helpful general information about physiotherapy at Neuhope. For advice about your own situation, please contact us.
             </p>
           </SectionHeading>
-          <a href="#contact" className="btn-secondary mt-8">
+          <a href={toContact()} className="btn-secondary mt-8">
             Ask Us a Question
           </a>
         </div>

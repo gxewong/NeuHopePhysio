@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, ImageIcon, X } from 'lucide-react';
-import { clinic, gallery } from '../data/site';
-import CallToAction from './CallToAction';
+import { ChevronLeft, ChevronRight, ImageIcon, X } from 'lucide-react';
+import { gallery } from '../data/site';
+import SectionHeading from './SectionHeading';
 
 const PLACEHOLDER_COUNT = 6;
 
@@ -64,13 +64,9 @@ function Lightbox({ index, onClose, onMove }: { index: number; onClose: () => vo
   );
 }
 
-export default function GalleryPage() {
+export default function GallerySection() {
   const [open, setOpen] = useState<number | null>(null);
   const triggers = useRef<(HTMLButtonElement | null)[]>([]);
-
-  useEffect(() => {
-    document.title = `Gallery | ${clinic.name}`;
-  }, []);
 
   const close = useCallback(() => {
     setOpen((i) => {
@@ -86,20 +82,11 @@ export default function GalleryPage() {
 
   return (
     <>
-      <section id="gallery" aria-labelledby="gallery-title" className="section bg-white">
+      <section id="gallery" aria-labelledby="gallery-title" className="section bg-brand-sage">
         <div className="container-site">
-          <a href="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-green underline-offset-4 hover:underline">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to home
-          </a>
-
-          <div className="mx-auto mt-8 max-w-2xl text-center">
-            <p className="eyebrow before:hidden">Gallery</p>
-            <h1 id="gallery-title" className="section-title mt-4">
-              Inside NeuHope
-            </h1>
-            <p className="lead mt-5">Take a look around our clinic before your first visit.</p>
-          </div>
+          <SectionHeading line={false} eyebrow="Gallery" title="Inside NeuHope" id="gallery-title">
+            <p>Take a look around our clinic before your first visit.</p>
+          </SectionHeading>
 
           <ul className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {hasPhotos
@@ -128,7 +115,7 @@ export default function GalleryPage() {
                 ))
               : Array.from({ length: PLACEHOLDER_COUNT }, (_, i) => (
                   <li key={i}>
-                    <div className="grid aspect-[4/3] w-full place-items-center rounded-card border-2 border-dashed border-brand-green/20 bg-brand-grey">
+                    <div className="grid aspect-[4/3] w-full place-items-center rounded-card border-2 border-dashed border-brand-green/20 bg-white/60">
                       <div className="text-center">
                         <ImageIcon className="mx-auto h-8 w-8 text-brand-green/40" aria-hidden="true" />
                         <p className="placeholder-text mt-3 inline-block">[Insert clinic photo]</p>
@@ -139,8 +126,6 @@ export default function GalleryPage() {
           </ul>
         </div>
       </section>
-
-      <CallToAction />
 
       {open !== null && <Lightbox index={open} onClose={close} onMove={move} />}
     </>

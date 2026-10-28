@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarCheck, Compass, HandHeart, Sprout } from 'lucide-react';
 import heroImg from '../assets/images/hero.webp';
 import SmartImage from './SmartImage';
+import { toContact } from '../route';
 
 const points = [
   { icon: HandHeart, label: 'Personalised Care' },
@@ -42,7 +43,7 @@ export default function HeroSection() {
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <a href="#contact" className="btn-primary">
+            <a href={toContact()} className="btn-primary">
               <CalendarCheck className="h-[18px] w-[18px]" aria-hidden="true" />
               Book an Appointment
             </a>
